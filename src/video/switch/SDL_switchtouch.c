@@ -49,16 +49,12 @@ void SWITCH_PollTouch(void)
 {
     const float rel_w = 1280.0f, rel_h = 720.0f;
     SDL_Window *window = SDL_GetFocusWindow();
-    SDL_TouchID id = 1;
+    SDL_TouchID id = 0;
     SDL_bool found;
     s32 i, j;
 
     if (!window) {
         return;
-    }
-
-    if (SDL_AddTouch(id, SDL_TOUCH_DEVICE_DIRECT, "") < 0) {
-        SDL_Log("error: can't add touch %s, %d", __FILE__, __LINE__);
     }
 
     SDL_memcpy(&touchStateOld, &touchState, sizeof(touchState));
@@ -96,7 +92,7 @@ void SWITCH_PollTouch(void)
                     /* Finger moved */
                     if (touchState.touches[j].x != touchStateOld.touches[i].x || touchState.touches[j].y != touchStateOld.touches[i].y) {
                         SDL_SendTouchMotion(id,
-                                            (SDL_FingerID)i, window,
+                                            (SDL_FingerID)touchStateOld.touches[i].finger_id, window,
                                             (float)touchState.touches[j].x / rel_w,
                                             (float)touchState.touches[j].y / rel_h, 1);
                     }
