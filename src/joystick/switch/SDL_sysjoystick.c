@@ -61,27 +61,27 @@ static const HidNpadButton pad_mapping_default[] = {
 // left single joycon mapping (start = left stick, select = minus)
 static const HidNpadButton pad_mapping_left_joy[] = {
         HidNpadButton_Down, HidNpadButton_Left, HidNpadButton_Right, HidNpadButton_Up,
-        BIT(31), BIT(31),
-        BIT(31), BIT(31),
+        0, 0,
+        0, 0,
         HidNpadButton_LeftSL, HidNpadButton_LeftSR,
         HidNpadButton_StickL, HidNpadButton_Minus,
         HidNpadButton_StickLUp, HidNpadButton_StickLRight, HidNpadButton_StickLDown, HidNpadButton_StickLLeft,
-        BIT(31), BIT(31), BIT(31), BIT(31),
-        BIT(31), BIT(31), BIT(31), BIT(31),
-        BIT(31), BIT(31), BIT(31), BIT(31)
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
 };
 
 // right single joycon mapping (start = right stick, select = plus)
 static const HidNpadButton pad_mapping_right_joy[] = {
         HidNpadButton_X, HidNpadButton_A, HidNpadButton_Y, HidNpadButton_B,
-        BIT(31), BIT(31),
-        BIT(31), BIT(31),
+        0, 0,
+        0, 0,
         HidNpadButton_RightSL, HidNpadButton_RightSR,
         HidNpadButton_StickR, HidNpadButton_Plus,
         HidNpadButton_StickRDown, HidNpadButton_StickRLeft, HidNpadButton_StickRUp, HidNpadButton_StickRRight,
-        BIT(31), BIT(31), BIT(31), BIT(31),
-        BIT(31), BIT(31), BIT(31), BIT(31),
-        BIT(31), BIT(31), BIT(31), BIT(31)
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
 };
 
 static void SWITCH_UpdateControllerSupport(bool handheld) {
@@ -110,9 +110,15 @@ static void SWITCH_UpdateControllerSupport(bool handheld) {
             } else {
                 state[i].pad_mapping = (HidNpadButton *) &pad_mapping_default;
             }
-            // update vibration stuff ?
-            hidInitializeVibrationDevices(&state[i].vibrationDeviceHandles, 1,
-                                          HidNpadIdType_No1 + i, state[i].pad_style);
+            // update vibration
+            {
+                HidNpadIdType npad_id = (i == 0)
+                    ? ((state[0].pad_style & HidNpadStyleTag_NpadHandheld)
+                        ? HidNpadIdType_Handheld : HidNpadIdType_No1)
+                    : (HidNpadIdType)(HidNpadIdType_No1 + i);
+                hidInitializeVibrationDevices(&state[i].vibrationDeviceHandles, 1,
+                                              npad_id, state[i].pad_style);
+            }
             // reset sdl joysticks states
             SDL_PrivateJoystickAxis(joy, 0, 0);
             SDL_PrivateJoystickAxis(joy, 1, 0);
@@ -150,6 +156,14 @@ static int SWITCH_JoystickInit(void) {
     }
     else {
         state[0].pad_mapping = (HidNpadButton*)&pad_mapping_default;
+    }
+
+    // initialize vibration for pad 0
+    {
+        HidNpadIdType pad0_id = (state[0].pad_style & HidNpadStyleTag_NpadHandheld)
+            ? HidNpadIdType_Handheld : HidNpadIdType_No1;
+        hidInitializeVibrationDevices(&state[0].vibrationDeviceHandles, 1,
+                                      pad0_id, state[0].pad_style);
     }
 
     // initialize pad and vibrations for pad 1 to 7
@@ -227,6 +241,9 @@ static int SWITCH_JoystickOpen(SDL_Joystick *joystick, int device_index) {
 
 static int SWITCH_JoystickRumble(SDL_Joystick *joystick, Uint16 low_frequency_rumble, Uint16 high_frequency_rumble) {
     int id = joystick->instance_id;
+    if (id < 0 || id >= JOYSTICK_COUNT) {
+        return SDL_SetError("Invalid joystick instance ID: %d", id);
+    }
 
     state[id].vibrationValues.amp_low =
     state[id].vibrationValues.amp_high = low_frequency_rumble == 0 ? 0.0f : 320.0f;
@@ -267,7 +284,7 @@ static int SWITCH_JoystickSetSensorsEnabled(SDL_Joystick *joystick, SDL_bool ena
 static void SWITCH_JoystickUpdate(SDL_Joystick *joystick) {
     u64 diff;
     int index = (int) SDL_JoystickInstanceID(joystick);
-    if (index >= JOYSTICK_COUNT || SDL_IsTextInputActive()) {
+    if (index < 0 || index >= JOYSTICK_COUNT || SDL_IsTextInputActive()) {
         return;
     }
 
@@ -290,25 +307,27 @@ static void SWITCH_JoystickUpdate(SDL_Joystick *joystick) {
         || (state[index].pad_type != HidDeviceTypeBits_JoyLeft
             && state[index].pad_type != HidDeviceTypeBits_JoyRight)) {
         // axis left
-        if (state[index].sticks_old[0].x != state[index].pad.sticks[0].x) {
-            SDL_PrivateJoystickAxis(joystick, 0, (Sint16) state[index].pad.sticks[0].x);
-            state[index].sticks_old[0].x = state[index].pad.sticks[0].x;
+        {
+            HidAnalogStickState stick = padGetStickPos(&state[index].pad, 0);
+            if (state[index].sticks_old[0].x != stick.x) {
+                SDL_PrivateJoystickAxis(joystick, 0, (Sint16) stick.x);
+            }
+            if (state[index].sticks_old[0].y != stick.y) {
+                SDL_PrivateJoystickAxis(joystick, 1, (Sint16) -stick.y);
+            }
+            state[index].sticks_old[0] = stick;
         }
-        if (state[index].sticks_old[0].y != state[index].pad.sticks[0].y) {
-            SDL_PrivateJoystickAxis(joystick, 1, (Sint16) - state[index].pad.sticks[0].y);
-            state[index].sticks_old[0].y = -state[index].pad.sticks[0].y;
-        }
-        state[index].sticks_old[0] = padGetStickPos(&state[index].pad, 0);
         // axis right
-        if (state[index].sticks_old[1].x != state[index].pad.sticks[1].x) {
-            SDL_PrivateJoystickAxis(joystick, 2, (Sint16) state[index].pad.sticks[1].x);
-            state[index].sticks_old[1].x = state[index].pad.sticks[1].x;
+        {
+            HidAnalogStickState stick = padGetStickPos(&state[index].pad, 1);
+            if (state[index].sticks_old[1].x != stick.x) {
+                SDL_PrivateJoystickAxis(joystick, 2, (Sint16) stick.x);
+            }
+            if (state[index].sticks_old[1].y != stick.y) {
+                SDL_PrivateJoystickAxis(joystick, 3, (Sint16) -stick.y);
+            }
+            state[index].sticks_old[1] = stick;
         }
-        if (state[index].sticks_old[1].y != state[index].pad.sticks[1].y) {
-            SDL_PrivateJoystickAxis(joystick, 3, (Sint16) - state[index].pad.sticks[1].y);
-            state[index].sticks_old[1].y = -state[index].pad.sticks[1].y;
-        }
-        state[index].sticks_old[1] = padGetStickPos(&state[index].pad, 1);
     }
 
     // handle buttons
