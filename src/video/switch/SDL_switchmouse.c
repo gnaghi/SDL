@@ -88,6 +88,12 @@ SWITCH_PollMouse(void)
 
     prev_buttons = mouse_state.buttons;
 
+    if (state_count > 0) {
+        if (mouse_state.wheel_delta_x != 0 || mouse_state.wheel_delta_y != 0) {
+            SDL_SendMouseWheel(window, 0, mouse_state.wheel_delta_x, mouse_state.wheel_delta_y, SDL_MOUSEWHEEL_NORMAL);
+        }
+    }
+
     timestamp = SDL_GetTicks();
 
     if (SDL_TICKS_PASSED(timestamp, last_timestamp + mouse_read_interval)) {
