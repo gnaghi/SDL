@@ -44,17 +44,26 @@ SDL_GetBasePath(void)
 char *
 SDL_GetPrefPath(const char *org, const char *app)
 {
-    char *ret = NULL;
     char buf[PATH_MAX + 1];
+    char *ret;
     size_t len;
 
-    if (getcwd(buf, sizeof(buf) - 1)) {
-        len = strlen(buf);
-        buf[len] =  '/';
-        buf[len + 1] = '\0';
-        ret = SDL_strdup(buf);
+    if (app == NULL) {
+        SDL_InvalidParamError("app");
+        return NULL;
     }
 
+    if (!getcwd(buf, sizeof(buf) - 1)) {
+        return NULL;
+    }
+
+    len = SDL_strlen(buf) + 1 + SDL_strlen(app) + 2;
+    ret = (char *) SDL_malloc(len);
+    if (!ret) {
+        SDL_OutOfMemory();
+        return NULL;
+    }
+    SDL_snprintf(ret, len, "%s/%s/", buf, app);
     return ret;
 }
 
