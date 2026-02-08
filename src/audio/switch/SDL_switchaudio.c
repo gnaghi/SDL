@@ -73,12 +73,20 @@ SWITCHAUDIO_OpenDevice(_THIS, const char *devname)
 
     size = (u32) ((this->spec.size * 2) + 0xfff) & ~0xfff;
     this->hidden->pool = memalign(0x1000, size);
+    if (this->hidden->pool == NULL) {
+        return SDL_OutOfMemory();
+    }
+    this->hidden->buffer_tmp = malloc(this->spec.size);
+    if (this->hidden->buffer_tmp == NULL) {
+        free(this->hidden->pool);
+        this->hidden->pool = NULL;
+        return SDL_OutOfMemory();
+    }
     for (int i = 0; i < 2; i++) {
         this->hidden->buffer[i].data_raw = this->hidden->pool;
         this->hidden->buffer[i].size = this->spec.size * 2;
         this->hidden->buffer[i].start_sample_offset = i * this->spec.samples;
         this->hidden->buffer[i].end_sample_offset = this->hidden->buffer[i].start_sample_offset + this->spec.samples;
-        this->hidden->buffer_tmp = malloc(this->spec.size);
     }
 
     mpid = audrvMemPoolAdd(&this->hidden->driver, this->hidden->pool, size);
@@ -147,7 +155,12 @@ SWITCHAUDIO_PlayDevice(_THIS)
                 break;
             }
         }
-        while (this->hidden->buffer[current].state == AudioDriverWaveBufState_Playing) {
+        if (current >= 0) {
+            while (this->hidden->buffer[current].state == AudioDriverWaveBufState_Playing) {
+                audrvUpdate(&this->hidden->driver);
+                audrenWaitFrame();
+            }
+        } else {
             audrvUpdate(&this->hidden->driver);
             audrenWaitFrame();
         }
@@ -178,6 +191,10 @@ SWITCHAUDIO_CloseDevice(_THIS)
 
     if (this->hidden->buffer_tmp) {
         free(this->hidden->buffer_tmp);
+    }
+
+    if (this->hidden->pool) {
+        free(this->hidden->pool);
     }
 
     SDL_free(this->hidden);
