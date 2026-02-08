@@ -85,6 +85,8 @@ SWITCH_StartTextInput(_THIS)
                 kbdAppearArg.dicFlag = 1;
                 kbdAppearArg.returnButtonFlag = 1;
                 kbdInited = true;
+            } else {
+                swkbdInlineClose(&kbd);
             }
         }
     }
