@@ -928,6 +928,7 @@ enable_backgrounding_signal
 enable_foregrounding_signal
 enable_joystick_virtual
 enable_render_d3d
+enable_switchgles
 enable_sdl2_config
 enable_vendor_info
 '
@@ -1758,6 +1759,8 @@ Optional Features:
   --enable-joystick-virtual
                           enable virtual joystick APIs [default=yes]
   --enable-render-d3d     enable the Direct3D render driver [default=yes]
+  --enable-switchgles     Use SwitchGLES backend instead of Mesa/Nouveau
+                          [default=yes]
   --enable-sdl2-config    Install sdl2-config [default=yes]
   --enable-vendor-info=STRING
                           Add vendor info to SDL_REVISION
@@ -27529,7 +27532,24 @@ $as_echo "#define SDL_JOYSTICK_OS2 1" >>confdefs.h
         EXTRA_CFLAGS="$EXTRA_CFLAGS -fPIC"
         EXTRA_CFLAGS="$EXTRA_CFLAGS $SDL_CFLAGS -g -O3"
         EXTRA_CFLAGS="$EXTRA_CFLAGS -DSDL_VIDEO_STATIC_ANGLE"
-        EXTRA_LDFLAGS="-fPIE -L${DEVKITPRO}/libnx/lib -lEGL -lstdc++ -lglapi -ldrm_nouveau -lnx"
+
+        # Check whether --enable-switchgles was given.
+if test "${enable_switchgles+set}" = set; then :
+  enableval=$enable_switchgles;
+else
+  enable_switchgles=yes
+fi
+
+
+        if test x$enable_switchgles = xyes; then
+            # SwitchGLES: transparent OpenGL ES 2.0 / EGL 1.4 via deko3d
+            EXTRA_CFLAGS="-I${DEVKITPRO}/portlibs/switch/include/switchgles $EXTRA_CFLAGS"
+            SDL_CFLAGS="-I${DEVKITPRO}/portlibs/switch/include/switchgles $SDL_CFLAGS"
+            EXTRA_LDFLAGS="-fPIE -L${DEVKITPRO}/libnx/lib -lSwitchGLES -ldeko3d -lstdc++ -lnx"
+        else
+            # Mesa/Nouveau: EGL + OpenGL ES 2.0
+            EXTRA_LDFLAGS="-fPIE -L${DEVKITPRO}/libnx/lib -lEGL -lstdc++ -lglapi -ldrm_nouveau -lnx"
+        fi
 
         CheckDeclarationAfterStatement
         CheckClockGettime

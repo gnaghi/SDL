@@ -4675,7 +4675,20 @@ dnl BeOS support removed after SDL 2.0.1. Haiku still works.  --ryan.
         EXTRA_CFLAGS="$EXTRA_CFLAGS -fPIC"
         EXTRA_CFLAGS="$EXTRA_CFLAGS $SDL_CFLAGS -g -O3"
         EXTRA_CFLAGS="$EXTRA_CFLAGS -DSDL_VIDEO_STATIC_ANGLE"
-        EXTRA_LDFLAGS="-fPIE -L${DEVKITPRO}/libnx/lib -lEGL -lstdc++ -lglapi -ldrm_nouveau -lnx"
+
+        AC_ARG_ENABLE(switchgles,
+AS_HELP_STRING([--enable-switchgles], [Use SwitchGLES backend instead of Mesa/Nouveau [[default=yes]]]),
+            , enable_switchgles=yes)
+
+        if test x$enable_switchgles = xyes; then
+            # SwitchGLES: transparent OpenGL ES 2.0 / EGL 1.4 via deko3d
+            EXTRA_CFLAGS="-I${DEVKITPRO}/portlibs/switch/include/switchgles $EXTRA_CFLAGS"
+            SDL_CFLAGS="-I${DEVKITPRO}/portlibs/switch/include/switchgles $SDL_CFLAGS"
+            EXTRA_LDFLAGS="-fPIE -L${DEVKITPRO}/libnx/lib -lSwitchGLES -ldeko3d -lstdc++ -lnx"
+        else
+            # Mesa/Nouveau: EGL + OpenGL ES 2.0
+            EXTRA_LDFLAGS="-fPIE -L${DEVKITPRO}/libnx/lib -lEGL -lstdc++ -lglapi -ldrm_nouveau -lnx"
+        fi
 
         CheckDeclarationAfterStatement
         CheckClockGettime
