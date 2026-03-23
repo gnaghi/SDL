@@ -47,6 +47,7 @@ void SWITCH_QuitTouch(void)
 
 void SWITCH_PollTouch(void)
 {
+    /* Touch is only available in handheld mode (always 1280x720) */
     const float rel_w = 1280.0f, rel_h = 720.0f;
     SDL_Window *window = SDL_GetFocusWindow();
     SDL_TouchID id = 0;

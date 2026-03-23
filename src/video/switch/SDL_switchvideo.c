@@ -200,10 +200,17 @@ SWITCH_SetDisplayMode(_THIS, SDL_VideoDisplay *display, SDL_DisplayMode *mode)
     NWindow *nWindow = nwindowGetDefault();
 
     if (data != NULL && data->egl_surface != EGL_NO_SURFACE) {
+        Result rc;
         SDL_EGL_MakeCurrent(_this, NULL, NULL);
         SDL_EGL_DestroySurface(_this, data->egl_surface);
-        nwindowSetDimensions(nWindow, mode->w, mode->h);
+        rc = nwindowSetDimensions(nWindow, mode->w, mode->h);
+        if (R_FAILED(rc)) {
+            return SDL_SetError("nwindowSetDimensions failed: 0x%x", rc);
+        }
         data->egl_surface = SDL_EGL_CreateSurface(_this, nWindow);
+        if (data->egl_surface == EGL_NO_SURFACE) {
+            return SDL_SetError("Failed to recreate EGL surface after mode change");
+        }
         SDL_EGL_MakeCurrent(_this, data->egl_surface, ctx);
     }
 
@@ -297,19 +304,16 @@ SWITCH_SetWindowPosition(_THIS, SDL_Window *window)
 void
 SWITCH_SetWindowSize(_THIS, SDL_Window *window)
 {
-    u32 w = 0, h = 0;
     SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
-    SDL_GLContext ctx = SDL_GL_GetCurrentContext();
     NWindow *nWindow = nwindowGetDefault();
 
-    if(window->w != w || window->h != h) {
-        if (data != NULL && data->egl_surface != EGL_NO_SURFACE) {
-            SDL_EGL_MakeCurrent(_this, NULL, NULL);
-            SDL_EGL_DestroySurface(_this, data->egl_surface);
-            nwindowSetDimensions(nWindow, window->w, window->h);
-            data->egl_surface = SDL_EGL_CreateSurface(_this, nWindow);
-            SDL_EGL_MakeCurrent(_this, data->egl_surface, ctx);
-        }
+    if (data != NULL && data->egl_surface != EGL_NO_SURFACE) {
+        SDL_GLContext ctx = SDL_GL_GetCurrentContext();
+        SDL_EGL_MakeCurrent(_this, NULL, NULL);
+        SDL_EGL_DestroySurface(_this, data->egl_surface);
+        nwindowSetDimensions(nWindow, window->w, window->h);
+        data->egl_surface = SDL_EGL_CreateSurface(_this, nWindow);
+        SDL_EGL_MakeCurrent(_this, data->egl_surface, ctx);
     }
 }
 void
